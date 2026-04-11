@@ -1,0 +1,11 @@
+.env
+.env.example
+.git
+.gitignore
+.idea
+data/
+*.db
+__pycache__
+*.pyc
+run.sh
+README.md
