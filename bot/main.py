@@ -1,7 +1,6 @@
 import asyncio
 import logging
 
-from aiohttp import ClientTimeout
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.client.session.aiohttp import AiohttpSession
@@ -46,9 +45,7 @@ async def main() -> None:
     await upsert_user(settings.admin_id, None)
     await seed_schedule(settings.admin_id)
 
-    session = AiohttpSession(
-        timeout=ClientTimeout(total=60, connect=15, sock_read=30),
-    )
+    session = AiohttpSession(timeout=60.0)
     bot = Bot(
         token=settings.bot_token,
         session=session,
