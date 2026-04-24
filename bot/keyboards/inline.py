@@ -6,15 +6,18 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from bot.utils.emoji import DAY_TYPE_EMOJI, DAY_TYPE_LABEL, CATEGORY_EMOJI
 
 
+_DAY_TYPE_OPTIONS = [
+    ("boxing", "🥊 Бокс (Пн/Ср)"),
+    ("boxing_fri", "🥊 Бокс (Пт)"),
+    ("gym", "🏋️ Зал"),
+    ("weekend_sat", "🏃 Суббота"),
+    ("weekend_sun", "😴 Воскресенье"),
+]
+
+
 def day_type_keyboard() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
-    day_types = [
-        ("boxing", "🥊 Бокс"),
-        ("gym", "🏋️ Зал"),
-        ("weekend_sat", "🏃 Суббота"),
-        ("weekend_sun", "😴 Воскресенье"),
-    ]
-    for dt, label in day_types:
+    for dt, label in _DAY_TYPE_OPTIONS:
         builder.button(text=label, callback_data=f"daytype:{dt}")
     builder.adjust(2)
     return builder.as_markup()
@@ -22,13 +25,7 @@ def day_type_keyboard() -> InlineKeyboardMarkup:
 
 def edit_day_type_keyboard() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
-    day_types = [
-        ("boxing", "🥊 Бокс"),
-        ("gym", "🏋️ Зал"),
-        ("weekend_sat", "🏃 Суббота"),
-        ("weekend_sun", "😴 Воскресенье"),
-    ]
-    for dt, label in day_types:
+    for dt, label in _DAY_TYPE_OPTIONS:
         builder.button(text=label, callback_data=f"edit_daytype:{dt}")
     builder.adjust(2)
     return builder.as_markup()
@@ -81,7 +78,8 @@ def add_day_type_keyboard() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     options = [
         ("all", "📅 Все типы дней"),
-        ("boxing", "🥊 Бокс"),
+        ("boxing", "🥊 Бокс (Пн/Ср)"),
+        ("boxing_fri", "🥊 Бокс (Пт)"),
         ("gym", "🏋️ Зал"),
         ("weekend_sat", "🏃 Суббота"),
         ("weekend_sun", "😴 Воскресенье"),

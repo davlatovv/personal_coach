@@ -161,6 +161,16 @@ async def check_seed_done(user_id: int) -> bool:
             return row["cnt"] > 0
 
 
+async def check_day_type_seeded(user_id: int, day_type: str) -> bool:
+    async with get_db() as db:
+        async with db.execute(
+            "SELECT COUNT(*) as cnt FROM schedule_items WHERE user_id = ? AND day_type = ? AND is_custom = 0",
+            (user_id, day_type),
+        ) as cursor:
+            row = await cursor.fetchone()
+            return row["cnt"] > 0
+
+
 # ── Notifications log ─────────────────────────────────────────────────────────
 
 async def log_notification(

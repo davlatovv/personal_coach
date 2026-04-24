@@ -1,9 +1,11 @@
+from collections import defaultdict
 from typing import List, Tuple
-from bot.database.queries import insert_schedule_item, check_seed_done
+
+from bot.database.queries import insert_schedule_item, check_day_type_seeded
 
 # (day_type, time, category, title, description)
 SCHEDULE_DATA: List[Tuple[str, str, str, str, str]] = [
-    # ── BOXING ────────────────────────────────────────────────────────────────
+    # ── BOXING (Пн / Ср) ──────────────────────────────────────────────────────
     ("boxing", "07:00", "water", "Подъём + вода",
      "Выпей 400 мл воды комнатной температуры. Телефон не трогать первые 10 мин."),
     ("boxing", "07:30", "supplement", "Утренние добавки",
@@ -32,16 +34,52 @@ SCHEDULE_DATA: List[Tuple[str, str, str, str, str]] = [
      "ISO Протеин 15–20 г в 350 мл воды.\nТолько если последний приём пищи был 3+ ч назад. Пей медленно, за 10–15 мин!"),
     ("boxing", "20:00", "sport", "БОКС — начало",
      "Тренировка началась! Вода на тренировке — минимум 500–700 мл."),
-    ("boxing", "21:30", "supplement", "После бокса — ВАЖНО",
+    ("boxing", "23:00", "supplement", "После бокса — ВАЖНО",
      "• ISO Протеин 25–30 г в 400 мл воды (медленно, 10–15 мин!)\n"
      "• Magnesium Glycinate 350 mg — 1 табл.\n• Ultra Mag 420 mg — 1 табл.\n"
      "Это самый важный приём — не пропускай!"),
-    ("boxing", "22:00", "food", "Лёгкий ужин",
+    ("boxing", "23:15", "food", "Лёгкий ужин",
      "Творог 200г / омлет 3 яйца / курица 120г + тушёные овощи.\nБЕЗ риса и лепёшки вечером — мешают сну."),
-    ("boxing", "23:00", "sleep", "Мелатонин + подготовка",
-     "Melatonin 10 mg — 1 табл. В темноте, телефон убрать."),
-    ("boxing", "23:30", "sleep", "ОТБОЙ",
-     "Сон 7.5 ч. Именно сейчас растут мышцы и восстанавливается тело."),
+    ("boxing", "23:45", "sleep", "Мелатонин + отбой",
+     "Melatonin 10 mg — 1 табл. В темноте, телефон убрать.\nСон 7.5 ч — именно сейчас растут мышцы."),
+
+    # ── BOXING_FRI (Пт) ───────────────────────────────────────────────────────
+    ("boxing_fri", "07:00", "water", "Подъём + вода",
+     "Выпей 400 мл воды комнатной температуры. Телефон не трогать первые 10 мин."),
+    ("boxing_fri", "07:30", "supplement", "Утренние добавки",
+     "• Vitamin D3 10 000 IU — 1 капс.\n• Omega-3 — 2 капс.\n• Lecithin 1200 mg — 1 капс.\n"
+     "• ADAM мультивитамин — по инструкции\n• Zinc 50 mg — 1 табл.\n• Kelp 150 mcg — 1 капс.\n"
+     "• Креатин 5 г — с едой или соком"),
+    ("boxing_fri", "07:30", "food", "Завтрак",
+     "Яичница/омлет 3 яйца + каша рисовая или овсяная 150г + лепёшка 1 кусок.\n"
+     "Обязательно с жиром (масло, яйца) — для усвоения D3 и Омеги."),
+    ("boxing_fri", "08:45", "food", "Кофе",
+     "Первый кофе. Не раньше 60–90 мин после подъёма — кортизол ещё высок."),
+    ("boxing_fri", "09:00", "work", "Работа — первый блок",
+     "Глубокая работа. Вода на столе — минимум 500 мл до обеда."),
+    ("boxing_fri", "14:00", "food", "Обед",
+     "Курица 150–180г + рис 200г или гречка + овощной салат + лепёшка. Взял контейнер?"),
+    ("boxing_fri", "14:00", "supplement", "Дневные добавки",
+     "• Calcium Citrate 1000 mg — 1 табл.\n• Glucosamine MSM — по инструкции\n"
+     "• Black Walnut 500 mg — 1 капс.\n• Gotu Kola — 1 капс.\n• Бифидумбактерин — 2–3 табл."),
+    ("boxing_fri", "15:00", "work", "Работа — второй блок",
+     "Последний кофе — не позднее 14:00. После только вода."),
+    ("boxing_fri", "15:30", "supplement", "Полдник + Кальцид",
+     "• Кальцид 400 мг × 2–3 табл.\nПерекус: творог 150г с мёдом или банан + йогурт 200г"),
+    ("boxing_fri", "17:30", "food", "Предтрен перекус",
+     "За 2–2.5 ч до бокса. Углеводы — главное!\nЛепёшка + 2 яйца / банан + кефир / остаток риса с курицей"),
+    ("boxing_fri", "19:30", "supplement", "Предтрен протеин",
+     "ISO Протеин 15–20 г в 350 мл воды.\nТолько если последний приём пищи был 3+ ч назад. Пей медленно, за 10–15 мин!"),
+    ("boxing_fri", "20:00", "sport", "БОКС — начало",
+     "Тренировка началась! Вода на тренировке — минимум 500–700 мл."),
+    ("boxing_fri", "23:00", "supplement", "После бокса — ВАЖНО",
+     "• ISO Протеин 25–30 г в 400 мл воды (медленно, 10–15 мин!)\n"
+     "• Magnesium Glycinate 350 mg — 1 табл.\n• Ultra Mag 420 mg — 1 табл.\n"
+     "Это самый важный приём — не пропускай!"),
+    ("boxing_fri", "23:15", "food", "Лёгкий ужин",
+     "Творог 200г / омлет 3 яйца / курица 120г + тушёные овощи.\nБЕЗ риса и лепёшки вечером — мешают сну."),
+    ("boxing_fri", "23:45", "sleep", "Мелатонин + отбой",
+     "Melatonin 10 mg — 1 табл. В темноте, телефон убрать.\nСон 7.5 ч — именно сейчас растут мышцы."),
 
     # ── GYM ──────────────────────────────────────────────────────────────────
     ("gym", "07:00", "water", "Подъём + вода",
@@ -124,18 +162,21 @@ SCHEDULE_DATA: List[Tuple[str, str, str, str, str]] = [
 
 
 async def seed_schedule(user_id: int) -> None:
-    """Insert default schedule items for all day types if not already seeded."""
-    already_done = await check_seed_done(user_id)
-    if already_done:
-        return
+    """Insert default schedule items per day_type if not already seeded for that type."""
+    by_day_type: dict = defaultdict(list)
+    for row in SCHEDULE_DATA:
+        by_day_type[row[0]].append(row)
 
-    for day_type, time, category, title, description in SCHEDULE_DATA:
-        await insert_schedule_item(
-            user_id=user_id,
-            day_type=day_type,
-            time=time,
-            category=category,
-            title=title,
-            description=description,
-            is_custom=0,
-        )
+    for day_type, items in by_day_type.items():
+        if await check_day_type_seeded(user_id, day_type):
+            continue
+        for dt, time, category, title, description in items:
+            await insert_schedule_item(
+                user_id=user_id,
+                day_type=dt,
+                time=time,
+                category=category,
+                title=title,
+                description=description,
+                is_custom=0,
+            )

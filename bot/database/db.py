@@ -80,3 +80,24 @@ async def create_tables() -> None:
                 "ALTER TABLE notifications_log ADD COLUMN status TEXT DEFAULT 'sent'"
             )
             await db.commit()
+
+    # Migrate boxing schedule timing (21:30→23:00, 22:00→23:15, merge melatonin+sleep)
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "UPDATE schedule_items SET time='23:00' "
+            "WHERE day_type='boxing' AND time='21:30' AND title='После бокса — ВАЖНО' AND is_custom=0"
+        )
+        await db.execute(
+            "UPDATE schedule_items SET time='23:15' "
+            "WHERE day_type='boxing' AND time='22:00' AND title='Лёгкий ужин' AND is_custom=0"
+        )
+        await db.execute(
+            "UPDATE schedule_items SET time='23:45', title='Мелатонин + отбой', "
+            "description='Melatonin 10 mg — 1 табл. В темноте, телефон убрать.\nСон 7.5 ч — именно сейчас растут мышцы.' "
+            "WHERE day_type='boxing' AND title='Мелатонин + подготовка' AND is_custom=0"
+        )
+        await db.execute(
+            "DELETE FROM schedule_items "
+            "WHERE day_type='boxing' AND time='23:30' AND title='ОТБОЙ' AND is_custom=0"
+        )
+        await db.commit()

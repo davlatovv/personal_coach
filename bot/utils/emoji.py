@@ -9,6 +9,7 @@ CATEGORY_EMOJI = {
 
 DAY_TYPE_EMOJI = {
     "boxing": "🥊",
+    "boxing_fri": "🥊",
     "gym": "🏋️",
     "weekend_sat": "🏃",
     "weekend_sun": "😴",
@@ -16,6 +17,7 @@ DAY_TYPE_EMOJI = {
 
 DAY_TYPE_LABEL = {
     "boxing": "Бокс",
+    "boxing_fri": "Бокс (пятница)",
     "gym": "Зал",
     "weekend_sat": "Суббота",
     "weekend_sun": "Воскресенье",
@@ -46,7 +48,7 @@ DEFAULT_WEEK_PATTERN = {
     1: "gym",
     2: "boxing",
     3: "gym",
-    4: "boxing",
+    4: "boxing_fri",
     5: "weekend_sat",
     6: "weekend_sun",
 }
