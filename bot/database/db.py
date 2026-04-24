@@ -53,6 +53,7 @@ async def create_tables() -> None:
                 date TEXT,
                 day_type TEXT,
                 category TEXT,
+                status TEXT DEFAULT 'sent',
                 FOREIGN KEY (user_id) REFERENCES users(user_id)
             );
 
@@ -69,3 +70,13 @@ async def create_tables() -> None:
             );
         """)
         await db.commit()
+
+    # Migrate existing DB: add status column if missing
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute("PRAGMA table_info(notifications_log)") as cursor:
+            columns = {row[1] for row in await cursor.fetchall()}
+        if "status" not in columns:
+            await db.execute(
+                "ALTER TABLE notifications_log ADD COLUMN status TEXT DEFAULT 'sent'"
+            )
+            await db.commit()

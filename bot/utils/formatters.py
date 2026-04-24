@@ -67,6 +67,16 @@ def format_week_schedule(week_data: List[Dict[str, Any]]) -> str:
     return "\n".join(lines).rstrip()
 
 
+_CAT_NAMES = {
+    "food": "Еда",
+    "supplement": "Добавки",
+    "sport": "Спорт",
+    "sleep": "Сон",
+    "water": "Вода",
+    "work": "Работа",
+}
+
+
 def format_stats(stats_data: Dict[str, Any]) -> str:
     """Format statistics for /stats command."""
     lines = ["📊 Статистика за неделю", ""]
@@ -77,7 +87,7 @@ def format_stats(stats_data: Dict[str, Any]) -> str:
         status = day["status"]
 
         if status == "done":
-            lines.append(f"{weekday_name} {day_emoji} — {day['count']} уведомлений отправлено")
+            lines.append(f"{weekday_name} {day_emoji} — {day['count']} отправлено")
         elif status == "today":
             lines.append(f"{weekday_name} {day_emoji} — в процессе ({day['count']} отправлено)")
         elif status == "future":
@@ -85,19 +95,39 @@ def format_stats(stats_data: Dict[str, Any]) -> str:
         else:
             lines.append(f"{weekday_name} {day_emoji} — нет данных")
 
+    # Overall completion block
+    comp = stats_data.get("completion", {})
+    total = comp.get("total", 0)
+    done = comp.get("done_count", 0)
+    skipped = comp.get("skipped_count", 0)
+    pending = comp.get("pending_count", 0)
+
     lines.append("")
-    lines.append("По категориям (за неделю):")
-    for cat, count in stats_data["by_category"].items():
-        emoji = CATEGORY_EMOJI.get(cat, "📌")
-        cat_name = {
-            "food": "Еда",
-            "supplement": "Добавки",
-            "sport": "Спорт",
-            "sleep": "Сон",
-            "water": "Вода",
-            "work": "Работа",
-        }.get(cat, cat)
-        lines.append(f"{emoji} {cat_name} — {count} раз")
+    lines.append("Выполнение за неделю:")
+    if total > 0:
+        pct = round(done / total * 100)
+        lines.append(f"✅ Выполнено: {done} / {total} ({pct}%)")
+        if skipped:
+            lines.append(f"❌ Пропущено: {skipped}")
+        if pending:
+            lines.append(f"⏳ Ожидает ответа: {pending}")
+    else:
+        lines.append("Нет данных")
+
+    # Per-category breakdown
+    cat_stats = stats_data.get("cat_stats", [])
+    if cat_stats:
+        lines.append("")
+        lines.append("По категориям:")
+        for row in cat_stats:
+            cat = row["category"]
+            emoji = CATEGORY_EMOJI.get(cat, "📌")
+            cat_name = _CAT_NAMES.get(cat, cat)
+            cat_total = row["total"]
+            cat_done = row["done_count"]
+            cat_skipped = row["skipped_count"]
+            cat_pct = round(cat_done / cat_total * 100) if cat_total else 0
+            lines.append(f"{emoji} {cat_name}: {cat_done}/{cat_total} ({cat_pct}%)" + (f" — {cat_skipped} пропущено" if cat_skipped else ""))
 
     lines.append("")
     streak = stats_data.get("streak", 0)

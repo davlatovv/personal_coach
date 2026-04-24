@@ -101,6 +101,14 @@ def confirm_keyboard() -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 
+def notification_action_keyboard(log_id: int) -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.button(text="✅ Выполнено", callback_data=f"notif:done:{log_id}")
+    builder.button(text="❌ Пропустить", callback_data=f"notif:skip:{log_id}")
+    builder.adjust(2)
+    return builder.as_markup()
+
+
 def skip_keyboard() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     builder.button(text="Пропустить", callback_data="add_skip_desc")

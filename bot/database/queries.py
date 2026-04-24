@@ -169,17 +169,65 @@ async def log_notification(
     target_date: str,
     day_type: str,
     category: str,
-) -> None:
+) -> int:
     async with get_db() as db:
-        await db.execute(
+        cursor = await db.execute(
             """
             INSERT INTO notifications_log
-                (user_id, schedule_item_id, date, day_type, category)
-            VALUES (?, ?, ?, ?, ?)
+                (user_id, schedule_item_id, date, day_type, category, status)
+            VALUES (?, ?, ?, ?, ?, 'sent')
             """,
             (user_id, schedule_item_id, target_date, day_type, category),
         )
         await db.commit()
+        return cursor.lastrowid
+
+
+async def update_notification_status(log_id: int, status: str) -> None:
+    async with get_db() as db:
+        await db.execute(
+            "UPDATE notifications_log SET status = ? WHERE id = ?",
+            (status, log_id),
+        )
+        await db.commit()
+
+
+async def get_completion_stats(user_id: int, week_start: str, week_end: str) -> Dict[str, Any]:
+    async with get_db() as db:
+        async with db.execute(
+            """
+            SELECT
+                COUNT(*) as total,
+                SUM(CASE WHEN status = 'done' THEN 1 ELSE 0 END) as done_count,
+                SUM(CASE WHEN status = 'skipped' THEN 1 ELSE 0 END) as skipped_count,
+                SUM(CASE WHEN status = 'sent' THEN 1 ELSE 0 END) as pending_count
+            FROM notifications_log
+            WHERE user_id = ? AND date >= ? AND date <= ?
+            """,
+            (user_id, week_start, week_end),
+        ) as cursor:
+            row = await cursor.fetchone()
+            return dict(row) if row else {"total": 0, "done_count": 0, "skipped_count": 0, "pending_count": 0}
+
+
+async def get_category_completion_stats(user_id: int, week_start: str, week_end: str) -> List[Dict[str, Any]]:
+    async with get_db() as db:
+        async with db.execute(
+            """
+            SELECT
+                category,
+                COUNT(*) as total,
+                SUM(CASE WHEN status = 'done' THEN 1 ELSE 0 END) as done_count,
+                SUM(CASE WHEN status = 'skipped' THEN 1 ELSE 0 END) as skipped_count
+            FROM notifications_log
+            WHERE user_id = ? AND date >= ? AND date <= ?
+            GROUP BY category
+            ORDER BY total DESC
+            """,
+            (user_id, week_start, week_end),
+        ) as cursor:
+            rows = await cursor.fetchall()
+            return [dict(r) for r in rows]
 
 
 async def get_week_stats(user_id: int, week_start: str, week_end: str) -> List[Dict[str, Any]]:

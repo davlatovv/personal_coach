@@ -1,8 +1,10 @@
 import asyncio
 import logging
 
+from aiohttp import ClientTimeout
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
+from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import Update
@@ -14,6 +16,7 @@ from bot.database.queries import upsert_user
 from bot.scheduler.scheduler import get_scheduler, setup_daily_jobs
 
 from bot.handlers import start, schedule, stats, daytype, pause, edit, add, help as help_handler
+from bot.handlers import notifications
 
 logging.basicConfig(
     level=logging.INFO,
@@ -43,8 +46,12 @@ async def main() -> None:
     await upsert_user(settings.admin_id, None)
     await seed_schedule(settings.admin_id)
 
+    session = AiohttpSession(
+        timeout=ClientTimeout(total=60, connect=15, sock_read=30),
+    )
     bot = Bot(
         token=settings.bot_token,
+        session=session,
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
     )
     storage = MemoryStorage()
@@ -62,6 +69,7 @@ async def main() -> None:
     dp.include_router(edit.router)
     dp.include_router(add.router)
     dp.include_router(help_handler.router)
+    dp.include_router(notifications.router)
 
     # Scheduler
     scheduler = get_scheduler()

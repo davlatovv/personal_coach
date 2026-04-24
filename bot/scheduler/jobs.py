@@ -1,3 +1,4 @@
+import logging
 import random
 from datetime import date
 from typing import Optional
@@ -6,8 +7,11 @@ from aiogram import Bot
 
 from bot.config import settings
 from bot.database.queries import log_notification
+from bot.keyboards.inline import notification_action_keyboard
 from bot.utils.emoji import CATEGORY_EMOJI, SPORT_PHRASES
 from bot.utils.formatters import format_notification
+
+logger = logging.getLogger(__name__)
 
 
 # In-memory pause state (reset on restart)
@@ -50,20 +54,19 @@ async def send_notification(bot: Bot, item: dict, target_date: date) -> None:
 
     text = format_notification(item)
 
-    # Append motivational phrase for sport category
     if item["category"] == "sport":
         phrase = random.choice(SPORT_PHRASES)
         text += f"\n\n💪 {phrase}"
 
     try:
-        await bot.send_message(chat_id=settings.admin_id, text=text)
-        await log_notification(
+        log_id = await log_notification(
             user_id=settings.admin_id,
             schedule_item_id=item["id"],
             target_date=target_date.isoformat(),
             day_type=item["day_type"],
             category=item["category"],
         )
+        keyboard = notification_action_keyboard(log_id)
+        await bot.send_message(chat_id=settings.admin_id, text=text, reply_markup=keyboard)
     except Exception as e:
-        # Log error but don't crash the scheduler
-        print(f"[NOTIFICATION ERROR] item_id={item['id']}: {e}")
+        logger.error(f"[NOTIFICATION ERROR] item_id={item['id']}: {e}")
