@@ -12,7 +12,7 @@ from bot.config import settings
 from bot.database.db import create_tables
 from bot.database.seed import seed_schedule
 from bot.database.queries import upsert_user
-from bot.scheduler.scheduler import get_scheduler, setup_daily_jobs
+from bot.scheduler.scheduler import start_scheduler, stop_scheduler
 
 from bot.handlers import start, schedule, stats, daytype, pause, edit, add, help as help_handler
 from bot.handlers import notifications
@@ -69,16 +69,13 @@ async def main() -> None:
     dp.include_router(notifications.router)
 
     # Scheduler
-    scheduler = get_scheduler()
-    await setup_daily_jobs(bot)
-    scheduler.start()
-    logger.info("Scheduler started")
+    await start_scheduler(bot)
 
     logger.info("Bot starting...")
     try:
         await dp.start_polling(bot, allowed_updates=["message", "callback_query"])
     finally:
-        scheduler.shutdown()
+        await stop_scheduler()
         await bot.session.close()
         logger.info("Bot stopped")
 

@@ -1,9 +1,10 @@
-from datetime import date, datetime, timedelta
+import asyncio
+import logging
+from datetime import date, datetime
 from typing import Optional
 
+import aioschedule as schedule
 import pytz
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from apscheduler.triggers.cron import CronTrigger
 from aiogram import Bot
 
 from bot.config import settings
@@ -11,83 +12,91 @@ from bot.database.queries import get_schedule_items
 from bot.scheduler.day_resolver import resolve_day_type
 from bot.scheduler.jobs import send_notification
 
-_scheduler: Optional[AsyncIOScheduler] = None
+logger = logging.getLogger(__name__)
 TZ = pytz.timezone(settings.timezone)
 
-
-def get_scheduler() -> AsyncIOScheduler:
-    global _scheduler
-    if _scheduler is None:
-        _scheduler = AsyncIOScheduler(timezone=TZ)
-    return _scheduler
+_runner_task: Optional[asyncio.Task] = None
+_runner_stop = asyncio.Event()
+_scheduler_lock = asyncio.Lock()
 
 
-async def setup_daily_jobs(bot: Bot, target_date: Optional[date] = None) -> None:
-    """
-    Schedule all notifications for target_date (default: today).
-    Removes existing daily jobs before adding new ones.
-    """
-    scheduler = get_scheduler()
-    if target_date is None:
-        target_date = date.today()
+def _today_in_tz() -> date:
+    return datetime.now(TZ).date()
+
+
+async def _build_jobs_for_date(bot: Bot, target_date: date) -> None:
+    """Clear all jobs and register daily jobs for target_date and midnight rebuild."""
+    schedule.clear()
+
+    # Rebuild schedule every day after midnight for the new day type.
+    schedule.every().day.at("00:00").do(_midnight_rebuild_job, bot)
 
     day_type = await resolve_day_type(target_date)
     items = await get_schedule_items(settings.admin_id, day_type)
 
-    # Remove all existing "daily_notif_*" jobs
-    for job in scheduler.get_jobs():
-        if job.id.startswith("daily_notif_"):
-            job.remove()
-
-    # Also schedule the midnight re-scheduler
-    _ensure_midnight_job(bot, scheduler)
-
     for item in items:
-        time_parts = item["time"].split(":")
-        hour, minute = int(time_parts[0]), int(time_parts[1])
+        schedule.every().day.at(item["time"]).do(_send_notification_job, bot, item)
 
-        job_id = f"daily_notif_{item['id']}_{target_date.isoformat()}"
-
-        # Build a run_date: today at that H:M in TZ
-        run_dt = TZ.localize(datetime(
-            target_date.year, target_date.month, target_date.day,
-            hour, minute, 0
-        ))
-
-        # Skip if time already passed
-        now = datetime.now(TZ)
-        if run_dt <= now:
-            continue
-
-        scheduler.add_job(
-            send_notification,
-            trigger="date",
-            run_date=run_dt,
-            args=[bot, item, target_date],
-            id=job_id,
-            replace_existing=True,
-            misfire_grace_time=120,
-        )
-
-
-def _ensure_midnight_job(bot: Bot, scheduler: AsyncIOScheduler) -> None:
-    """Add/replace midnight job that reloads schedule for the new day."""
-    job_id = "midnight_reschedule"
-    existing = scheduler.get_job(job_id)
-    if existing:
-        return
-
-    async def _reschedule():
-        await setup_daily_jobs(bot)
-
-    scheduler.add_job(
-        _reschedule,
-        trigger=CronTrigger(hour=0, minute=0, second=5, timezone=TZ),
-        id=job_id,
-        replace_existing=True,
+    logger.info(
+        "Scheduler rebuilt for %s (%s): %s jobs",
+        target_date.isoformat(),
+        day_type,
+        len(items),
     )
 
 
+async def _midnight_rebuild_job(bot: Bot) -> None:
+    async with _scheduler_lock:
+        await _build_jobs_for_date(bot, _today_in_tz())
+
+
+async def _send_notification_job(bot: Bot, item: dict) -> None:
+    await send_notification(bot, item, _today_in_tz())
+
+
+async def setup_daily_jobs(bot: Bot, target_date: Optional[date] = None) -> None:
+    """Public API: rebuild all daily jobs for target_date (default: today)."""
+    if target_date is None:
+        target_date = _today_in_tz()
+
+    async with _scheduler_lock:
+        await _build_jobs_for_date(bot, target_date)
+
+
+async def _run_scheduler_loop() -> None:
+    while not _runner_stop.is_set():
+        try:
+            await schedule.run_pending()
+        except Exception as e:
+            logger.exception("[SCHEDULER LOOP ERROR] %s", e)
+        await asyncio.sleep(1)
+
+
+async def start_scheduler(bot: Bot) -> None:
+    global _runner_task
+    if _runner_task and not _runner_task.done():
+        return
+
+    _runner_stop.clear()
+    await setup_daily_jobs(bot)
+    _runner_task = asyncio.create_task(_run_scheduler_loop())
+    logger.info("Scheduler started")
+
+
+async def stop_scheduler() -> None:
+    global _runner_task
+    _runner_stop.set()
+    if _runner_task:
+        _runner_task.cancel()
+        try:
+            await _runner_task
+        except asyncio.CancelledError:
+            pass
+        _runner_task = None
+    schedule.clear()
+    logger.info("Scheduler stopped")
+
+
 async def reschedule_today(bot: Bot) -> None:
-    """Force re-schedule jobs for today (called after /daytype change)."""
-    await setup_daily_jobs(bot, date.today())
+    """Force re-schedule jobs for today (called after /daytype or schedule changes)."""
+    await setup_daily_jobs(bot, _today_in_tz())

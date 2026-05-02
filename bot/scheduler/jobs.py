@@ -1,9 +1,11 @@
 import logging
 import random
+import asyncio
 from datetime import date
 from typing import Optional
 
 from aiogram import Bot
+from aiogram.exceptions import TelegramRetryAfter, TelegramNetworkError, TelegramServerError
 
 from bot.config import settings
 from bot.database.queries import log_notification
@@ -67,6 +69,32 @@ async def send_notification(bot: Bot, item: dict, target_date: date) -> None:
             category=item["category"],
         )
         keyboard = notification_action_keyboard(log_id)
-        await bot.send_message(chat_id=settings.admin_id, text=text, reply_markup=keyboard)
     except Exception as e:
-        logger.error(f"[NOTIFICATION ERROR] item_id={item['id']}: {e}")
+        logger.error(f"[NOTIFICATION PREP ERROR] item_id={item['id']}: {e}")
+        return
+
+    max_attempts = 5
+    for attempt in range(1, max_attempts + 1):
+        try:
+            await bot.send_message(chat_id=settings.admin_id, text=text, reply_markup=keyboard)
+            return
+        except TelegramRetryAfter as e:
+            wait_for = max(float(e.retry_after), 1.0)
+            logger.warning(
+                f"[NOTIFICATION RETRY_AFTER] item_id={item['id']} attempt={attempt}/{max_attempts}, "
+                f"sleep={wait_for:.2f}s"
+            )
+            await asyncio.sleep(wait_for)
+        except (TelegramNetworkError, TelegramServerError) as e:
+            # Exponential backoff for temporary Telegram-side/network failures.
+            wait_for = min(2 ** attempt, 30)
+            logger.warning(
+                f"[NOTIFICATION TRANSIENT ERROR] item_id={item['id']} attempt={attempt}/{max_attempts}: {e}. "
+                f"sleep={wait_for}s"
+            )
+            await asyncio.sleep(wait_for)
+        except Exception as e:
+            logger.error(f"[NOTIFICATION ERROR] item_id={item['id']}: {e}")
+            return
+
+    logger.error(f"[NOTIFICATION GIVEUP] item_id={item['id']} exhausted {max_attempts} attempts")
