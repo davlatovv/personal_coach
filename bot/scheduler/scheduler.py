@@ -3,7 +3,6 @@ import logging
 from datetime import date, datetime
 from typing import Optional
 
-import aioschedule as schedule
 import pytz
 from aiogram import Bot
 
@@ -19,23 +18,30 @@ _runner_task: Optional[asyncio.Task] = None
 _runner_stop = asyncio.Event()
 _scheduler_lock = asyncio.Lock()
 
+# List of (time_str "HH:MM", async callable) registered for today.
+_jobs: list[tuple[str, object]] = []
+_jobs_fired: set[str] = set()  # keys already fired today: "HH:MM|job_index"
+
 
 def _today_in_tz() -> date:
     return datetime.now(TZ).date()
 
 
-async def _build_jobs_for_date(bot: Bot, target_date: date) -> None:
-    """Clear all jobs and register daily jobs for target_date and midnight rebuild."""
-    schedule.clear()
+def _now_hhmm() -> str:
+    return datetime.now(TZ).strftime("%H:%M")
 
-    # Rebuild schedule every day after midnight for the new day type.
-    schedule.every().day.at("00:00").do(_midnight_rebuild_job, bot)
+
+async def _build_jobs_for_date(bot: Bot, target_date: date) -> None:
+    global _jobs, _jobs_fired
+    _jobs = []
+    _jobs_fired = set()
 
     day_type = await resolve_day_type(target_date)
     items = await get_schedule_items(settings.admin_id, day_type)
 
     for item in items:
-        schedule.every().day.at(item["time"]).do(_send_notification_job, bot, item)
+        time_str = item["time"][:5]  # "HH:MM"
+        _jobs.append((time_str, lambda b=bot, i=item: send_notification(b, i, _today_in_tz())))
 
     logger.info(
         "Scheduler rebuilt for %s (%s): %s jobs",
@@ -45,30 +51,35 @@ async def _build_jobs_for_date(bot: Bot, target_date: date) -> None:
     )
 
 
-async def _midnight_rebuild_job(bot: Bot) -> None:
-    async with _scheduler_lock:
-        await _build_jobs_for_date(bot, _today_in_tz())
-
-
-async def _send_notification_job(bot: Bot, item: dict) -> None:
-    await send_notification(bot, item, _today_in_tz())
-
-
 async def setup_daily_jobs(bot: Bot, target_date: Optional[date] = None) -> None:
-    """Public API: rebuild all daily jobs for target_date (default: today)."""
     if target_date is None:
         target_date = _today_in_tz()
-
     async with _scheduler_lock:
         await _build_jobs_for_date(bot, target_date)
 
 
-async def _run_scheduler_loop() -> None:
+async def _run_scheduler_loop(bot: Bot) -> None:
+    last_rebuild_date: Optional[date] = None
+
     while not _runner_stop.is_set():
-        try:
-            await schedule.run_pending()
-        except Exception as e:
-            logger.exception("[SCHEDULER LOOP ERROR] %s", e)
+        now = datetime.now(TZ)
+        today = now.date()
+
+        # Rebuild at midnight for the new day.
+        if last_rebuild_date != today:
+            async with _scheduler_lock:
+                await _build_jobs_for_date(bot, today)
+            last_rebuild_date = today
+
+        current_hhmm = now.strftime("%H:%M")
+
+        async with _scheduler_lock:
+            for idx, (time_str, coro_factory) in enumerate(_jobs):
+                key = f"{time_str}|{idx}"
+                if time_str == current_hhmm and key not in _jobs_fired:
+                    _jobs_fired.add(key)
+                    asyncio.create_task(coro_factory())
+
         await asyncio.sleep(1)
 
 
@@ -79,7 +90,7 @@ async def start_scheduler(bot: Bot) -> None:
 
     _runner_stop.clear()
     await setup_daily_jobs(bot)
-    _runner_task = asyncio.create_task(_run_scheduler_loop())
+    _runner_task = asyncio.create_task(_run_scheduler_loop(bot))
     logger.info("Scheduler started")
 
 
@@ -93,10 +104,8 @@ async def stop_scheduler() -> None:
         except asyncio.CancelledError:
             pass
         _runner_task = None
-    schedule.clear()
     logger.info("Scheduler stopped")
 
 
 async def reschedule_today(bot: Bot) -> None:
-    """Force re-schedule jobs for today (called after /daytype or schedule changes)."""
     await setup_daily_jobs(bot, _today_in_tz())
