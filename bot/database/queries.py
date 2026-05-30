@@ -29,6 +29,27 @@ async def get_user(user_id: int) -> Optional[Dict[str, Any]]:
             return dict(row) if row else None
 
 
+# ── Finance balance ──────────────────────────────────────────────────────────
+
+async def get_finance_balance(user_id: int) -> Dict[str, Any]:
+    async with get_db() as db:
+        async with db.execute(
+            "SELECT * FROM finance_balance WHERE user_id = ?", (user_id,)
+        ) as cursor:
+            row = await cursor.fetchone()
+            if row:
+                return dict(row)
+
+    return {
+        "user_id": user_id,
+        "cash_uzs": 0,
+        "card_uzs": 0,
+        "currency_usd": 0,
+        "usd_rate": 0,
+        "updated_at": None,
+    }
+
+
 # ── Day types ─────────────────────────────────────────────────────────────────
 
 async def set_day_type(target_date: str, day_type: str) -> None:

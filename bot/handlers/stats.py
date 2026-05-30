@@ -5,10 +5,14 @@ from aiogram.filters import Command
 from aiogram.types import Message
 
 from bot.config import settings
-from bot.database.queries import get_week_day_counts, get_category_counts, get_completion_stats, get_category_completion_stats
+from bot.database.queries import (
+    get_finance_balance,
+    get_week_day_counts,
+    get_completion_stats,
+    get_category_completion_stats,
+)
 from bot.scheduler.day_resolver import resolve_day_type
 from bot.utils.formatters import format_stats
-from bot.utils.emoji import DAY_TYPE_EMOJI, DAY_TYPE_LABEL, WEEKDAY_NAMES
 
 router = Router()
 
@@ -34,6 +38,7 @@ async def cmd_stats(message: Message) -> None:
     completion = await get_completion_stats(
         settings.admin_id, week_start_str, week_end_str
     )
+    finance_balance = await get_finance_balance(settings.admin_id)
 
     days_info = []
     for i in range(7):
@@ -77,6 +82,7 @@ async def cmd_stats(message: Message) -> None:
         "cat_stats": cat_stats,
         "completion": completion,
         "streak": streak,
+        "finance_balance": finance_balance,
     }
 
     text = format_stats(stats_data)

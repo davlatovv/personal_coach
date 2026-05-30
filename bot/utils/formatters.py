@@ -77,6 +77,11 @@ _CAT_NAMES = {
 }
 
 
+def _format_money(value: Any) -> str:
+    amount = round(float(value or 0))
+    return f"{amount:,}".replace(",", " ")
+
+
 def format_stats(stats_data: Dict[str, Any]) -> str:
     """Format statistics for /stats command."""
     lines = ["📊 Статистика за неделю", ""]
@@ -132,5 +137,24 @@ def format_stats(stats_data: Dict[str, Any]) -> str:
     lines.append("")
     streak = stats_data.get("streak", 0)
     lines.append(f"🔥 Streak: {streak} {'день' if streak == 1 else 'дня' if 2 <= streak <= 4 else 'дней'} подряд")
+
+    balance = stats_data.get("finance_balance") or {}
+    cash_uzs = float(balance.get("cash_uzs") or 0)
+    card_uzs = float(balance.get("card_uzs") or 0)
+    currency_usd = float(balance.get("currency_usd") or 0)
+    usd_rate = float(balance.get("usd_rate") or 0)
+    currency_uzs = currency_usd * usd_rate
+    total_uzs = cash_uzs + card_uzs + currency_uzs
+
+    lines.append("")
+    lines.append("💰 Баланс")
+    lines.append("")
+    lines.append(f"Наличные: {_format_money(cash_uzs)} сум")
+    lines.append(f"Карта: {_format_money(card_uzs)} сум")
+    lines.append(
+        f"Валюта: ${_format_money(currency_usd)} ≈ {_format_money(currency_uzs)} сум"
+    )
+    lines.append("")
+    lines.append(f"Итого: {_format_money(total_uzs)} сум")
 
     return "\n".join(lines)
