@@ -19,6 +19,7 @@ def format_notification(item: Dict[str, Any]) -> str:
         "sleep": "СОН",
         "water": "ВОДА",
         "work": "РАБОТА",
+        "reminder": "НАПОМИНАЛКА",
     }.get(item["category"], item["category"].upper())
 
     lines = [
@@ -74,6 +75,7 @@ _CAT_NAMES = {
     "sleep": "Сон",
     "water": "Вода",
     "work": "Работа",
+    "reminder": "Напоминалки",
 }
 
 

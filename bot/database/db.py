@@ -49,11 +49,26 @@ async def create_tables() -> None:
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER,
                 schedule_item_id INTEGER,
+                reminder_id INTEGER,
                 sent_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 date TEXT,
                 day_type TEXT,
                 category TEXT,
+                source_type TEXT DEFAULT 'schedule',
                 status TEXT DEFAULT 'sent',
+                FOREIGN KEY (user_id) REFERENCES users(user_id)
+            );
+
+            CREATE TABLE IF NOT EXISTS reminders (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER,
+                title TEXT,
+                description TEXT,
+                time TEXT,
+                start_date TEXT,
+                end_date TEXT,
+                is_active INTEGER DEFAULT 1,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES users(user_id)
             );
 
@@ -79,7 +94,15 @@ async def create_tables() -> None:
             await db.execute(
                 "ALTER TABLE notifications_log ADD COLUMN status TEXT DEFAULT 'sent'"
             )
-            await db.commit()
+        if "source_type" not in columns:
+            await db.execute(
+                "ALTER TABLE notifications_log ADD COLUMN source_type TEXT DEFAULT 'schedule'"
+            )
+        if "reminder_id" not in columns:
+            await db.execute(
+                "ALTER TABLE notifications_log ADD COLUMN reminder_id INTEGER"
+            )
+        await db.commit()
 
     # Migrate boxing schedule timing (21:30→23:00, 22:00→23:15, merge melatonin+sleep)
     async with aiosqlite.connect(DB_PATH) as db:

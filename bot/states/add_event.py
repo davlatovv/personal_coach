@@ -14,3 +14,12 @@ class AddEventStates(StatesGroup):
 class EditItemStates(StatesGroup):
     waiting_new_time = State()
     waiting_new_description = State()
+
+
+class ReminderStates(StatesGroup):
+    waiting_title = State()
+    waiting_description = State()
+    waiting_time = State()
+    waiting_start_date = State()
+    waiting_end_date = State()
+    confirm = State()

@@ -151,6 +151,47 @@ async def insert_schedule_item(
         return cursor.lastrowid
 
 
+async def insert_reminder(
+    user_id: int,
+    title: str,
+    description: str,
+    time: str,
+    start_date: str,
+    end_date: str,
+) -> int:
+    async with get_db() as db:
+        cursor = await db.execute(
+            """
+            INSERT INTO reminders
+                (user_id, title, description, time, start_date, end_date, is_active)
+            VALUES (?, ?, ?, ?, ?, ?, 1)
+            """,
+            (user_id, title, description, time, start_date, end_date),
+        )
+        await db.commit()
+        return cursor.lastrowid
+
+
+async def get_active_reminders_for_date(
+    user_id: int,
+    target_date: str,
+) -> List[Dict[str, Any]]:
+    async with get_db() as db:
+        async with db.execute(
+            """
+            SELECT * FROM reminders
+            WHERE user_id = ?
+              AND is_active = 1
+              AND start_date <= ?
+              AND end_date >= ?
+            ORDER BY time ASC
+            """,
+            (user_id, target_date, target_date),
+        ) as cursor:
+            rows = await cursor.fetchall()
+            return [dict(r) for r in rows]
+
+
 async def check_seed_done(user_id: int) -> bool:
     async with get_db() as db:
         async with db.execute(
@@ -188,6 +229,24 @@ async def log_notification(
             VALUES (?, ?, ?, ?, ?, 'sent')
             """,
             (user_id, schedule_item_id, target_date, day_type, category),
+        )
+        await db.commit()
+        return cursor.lastrowid
+
+
+async def log_reminder_notification(
+    user_id: int,
+    reminder_id: int,
+    target_date: str,
+) -> int:
+    async with get_db() as db:
+        cursor = await db.execute(
+            """
+            INSERT INTO notifications_log
+                (user_id, schedule_item_id, reminder_id, date, day_type, category, source_type, status)
+            VALUES (?, NULL, ?, ?, 'reminder', 'reminder', 'reminder', 'sent')
+            """,
+            (user_id, reminder_id, target_date),
         )
         await db.commit()
         return cursor.lastrowid

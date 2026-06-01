@@ -14,7 +14,17 @@ from bot.database.seed import seed_schedule
 from bot.database.queries import upsert_user
 from bot.scheduler.scheduler import start_scheduler, stop_scheduler
 
-from bot.handlers import start, schedule, stats, daytype, pause, edit, add, help as help_handler
+from bot.handlers import (
+    start,
+    schedule,
+    stats,
+    daytype,
+    pause,
+    edit,
+    add,
+    reminder,
+    help as help_handler,
+)
 from bot.handlers import notifications
 
 logging.basicConfig(
@@ -65,6 +75,7 @@ async def main() -> None:
     dp.include_router(pause.router)
     dp.include_router(edit.router)
     dp.include_router(add.router)
+    dp.include_router(reminder.router)
     dp.include_router(help_handler.router)
     dp.include_router(notifications.router)
 

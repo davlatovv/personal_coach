@@ -14,6 +14,8 @@ STATUS_TEXT = {
 @router.callback_query(F.data.startswith("notif:"))
 async def handle_notification_action(callback: CallbackQuery) -> None:
     _, action, log_id_str = callback.data.split(":")
+    if action == "skip":
+        action = "skipped"
     log_id = int(log_id_str)
 
     await update_notification_status(log_id, action)

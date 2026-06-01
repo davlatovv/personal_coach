@@ -7,9 +7,9 @@ import pytz
 from aiogram import Bot
 
 from bot.config import settings
-from bot.database.queries import get_schedule_items
+from bot.database.queries import get_active_reminders_for_date, get_schedule_items
 from bot.scheduler.day_resolver import resolve_day_type
-from bot.scheduler.jobs import send_notification
+from bot.scheduler.jobs import send_notification, send_reminder_notification
 
 logger = logging.getLogger(__name__)
 TZ = pytz.timezone(settings.timezone)
@@ -38,16 +38,36 @@ async def _build_jobs_for_date(bot: Bot, target_date: date) -> None:
 
     day_type = await resolve_day_type(target_date)
     items = await get_schedule_items(settings.admin_id, day_type)
+    reminders = await get_active_reminders_for_date(
+        settings.admin_id,
+        target_date.isoformat(),
+    )
 
     for item in items:
         time_str = item["time"][:5]  # "HH:MM"
-        _jobs.append((time_str, lambda b=bot, i=item: send_notification(b, i, _today_in_tz())))
+        _jobs.append(
+            (time_str, lambda b=bot, i=item: send_notification(b, i, _today_in_tz()))
+        )
+
+    for reminder in reminders:
+        time_str = reminder["time"][:5]
+        _jobs.append(
+            (
+                time_str,
+                lambda b=bot, r=reminder: send_reminder_notification(
+                    b,
+                    r,
+                    _today_in_tz(),
+                ),
+            )
+        )
 
     logger.info(
-        "Scheduler rebuilt for %s (%s): %s jobs",
+        "Scheduler rebuilt for %s (%s): %s schedule jobs, %s reminder jobs",
         target_date.isoformat(),
         day_type,
         len(items),
+        len(reminders),
     )
 
 

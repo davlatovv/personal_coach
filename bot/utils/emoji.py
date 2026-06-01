@@ -5,6 +5,7 @@ CATEGORY_EMOJI = {
     "sleep": "💤",
     "water": "💧",
     "work": "💼",
+    "reminder": "🔔",
 }
 
 DAY_TYPE_EMOJI = {
@@ -13,6 +14,7 @@ DAY_TYPE_EMOJI = {
     "gym": "🏋️",
     "weekend_sat": "🏃",
     "weekend_sun": "😴",
+    "reminder": "🔔",
 }
 
 DAY_TYPE_LABEL = {
@@ -21,6 +23,7 @@ DAY_TYPE_LABEL = {
     "gym": "Зал",
     "weekend_sat": "Суббота",
     "weekend_sun": "Воскресенье",
+    "reminder": "Напоминалка",
 }
 
 WEEKDAY_NAMES = {
