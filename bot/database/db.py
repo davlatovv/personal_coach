@@ -68,16 +68,6 @@ async def create_tables() -> None:
                 is_active INTEGER DEFAULT 1,
                 FOREIGN KEY (user_id) REFERENCES users(user_id)
             );
-
-            CREATE TABLE IF NOT EXISTS finance_balance (
-                user_id INTEGER PRIMARY KEY,
-                cash_uzs REAL DEFAULT 0,
-                card_uzs REAL DEFAULT 0,
-                currency_usd REAL DEFAULT 0,
-                usd_rate REAL DEFAULT 0,
-                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users(user_id)
-            );
         """)
         await db.commit()
 
@@ -109,13 +99,5 @@ async def create_tables() -> None:
         await db.execute(
             "DELETE FROM schedule_items "
             "WHERE day_type='boxing' AND time='23:30' AND title='ОТБОЙ' AND is_custom=0"
-        )
-        await db.commit()
-
-    # Remove detailed meal descriptions from default schedule items.
-    async with aiosqlite.connect(DB_PATH) as db:
-        await db.execute(
-            "UPDATE schedule_items SET description='' "
-            "WHERE category='food' AND is_custom=0 AND COALESCE(description, '') != ''"
         )
         await db.commit()
