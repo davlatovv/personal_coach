@@ -1,5 +1,6 @@
-from aiogram import Router, F
-from aiogram.types import CallbackQuery
+from aiogram import Router
+from aiogram.filters import Command
+from aiogram.types import Message
 
 from bot.database.queries import update_notification_status
 
@@ -11,18 +12,29 @@ STATUS_TEXT = {
 }
 
 
-@router.callback_query(F.data.startswith("notif:"))
-async def handle_notification_action(callback: CallbackQuery) -> None:
-    _, action, log_id_str = callback.data.split(":")
-    if action == "skip":
-        action = "skipped"
-    log_id = int(log_id_str)
+def _log_id_arg(message: Message, command: str) -> int | None:
+    parts = (message.text or "").strip().split(maxsplit=1)
+    if len(parts) < 2 or not parts[1].strip().isdigit():
+        return None
+    return int(parts[1].strip())
 
-    await update_notification_status(log_id, action)
 
-    original_text = callback.message.text or ""
-    status_label = STATUS_TEXT.get(action, action)
-    new_text = f"{original_text}\n\n{status_label}"
+async def _set_status(message: Message, action: str) -> None:
+    log_id = _log_id_arg(message, action)
+    if log_id is None:
+        await message.answer(f"Используй /{action} <notification_id>")
+        return
 
-    await callback.message.edit_text(new_text, reply_markup=None)
-    await callback.answer()
+    status = "skipped" if action == "skip" else action
+    await update_notification_status(log_id, status)
+    await message.answer(f"{STATUS_TEXT.get(status, status)}: notification_id={log_id}")
+
+
+@router.message(Command("done"))
+async def cmd_done(message: Message) -> None:
+    await _set_status(message, "done")
+
+
+@router.message(Command("skip"))
+async def cmd_skip(message: Message) -> None:
+    await _set_status(message, "skip")

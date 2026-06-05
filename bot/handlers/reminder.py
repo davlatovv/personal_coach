@@ -1,13 +1,12 @@
 from datetime import datetime
 
-from aiogram import Router, F
+from aiogram import Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
-from aiogram.types import Message, CallbackQuery
+from aiogram.types import Message
 
 from bot.config import settings
 from bot.database.queries import insert_reminder
-from bot.keyboards.inline import reminder_confirm_keyboard, skip_keyboard
 from bot.states.add_event import ReminderStates
 from bot.utils.validators import normalize_time, validate_time
 
@@ -19,10 +18,20 @@ def _parse_date(date_str: str):
 
 
 @router.message(Command("reminder"))
-@router.message(F.text == "🔔 Напоминалка")
 async def cmd_reminder(message: Message, state: FSMContext) -> None:
     await state.set_state(ReminderStates.waiting_title)
     await message.answer("🔔 Введи название напоминалки:")
+
+
+@router.message(ReminderStates.waiting_title, Command("cancel"))
+@router.message(ReminderStates.waiting_description, Command("cancel"))
+@router.message(ReminderStates.waiting_time, Command("cancel"))
+@router.message(ReminderStates.waiting_start_date, Command("cancel"))
+@router.message(ReminderStates.waiting_end_date, Command("cancel"))
+@router.message(ReminderStates.confirm, Command("cancel"))
+async def fsm_cancel(message: Message, state: FSMContext) -> None:
+    await state.clear()
+    await message.answer("❌ Добавление напоминалки отменено.")
 
 
 @router.message(ReminderStates.waiting_title)
@@ -35,17 +44,15 @@ async def fsm_title(message: Message, state: FSMContext) -> None:
     await state.update_data(title=title)
     await state.set_state(ReminderStates.waiting_description)
     await message.answer(
-        "📄 Введи описание (или нажми «Пропустить»):",
-        reply_markup=skip_keyboard(),
+        "📄 Введи описание или отправь /skip, чтобы пропустить:",
     )
 
 
-@router.callback_query(ReminderStates.waiting_description, F.data == "add_skip_desc")
-async def fsm_skip_desc(callback: CallbackQuery, state: FSMContext) -> None:
+@router.message(ReminderStates.waiting_description, Command("skip"))
+async def fsm_skip_desc(message: Message, state: FSMContext) -> None:
     await state.update_data(description="")
     await state.set_state(ReminderStates.waiting_time)
-    await callback.message.answer("⏰ Введи время в формате HH:MM (например 14:30):")
-    await callback.answer()
+    await message.answer("⏰ Введи время в формате HH:MM (например 14:30):")
 
 
 @router.message(ReminderStates.waiting_description)
@@ -118,22 +125,13 @@ async def _show_confirm(message: Message, state: FSMContext) -> None:
 
     await state.set_state(ReminderStates.confirm)
     await message.answer(
-        text,
-        reply_markup=reminder_confirm_keyboard(),
+        text + "\n\nОтправь /confirm, чтобы сохранить, или /cancel, чтобы отменить.",
         parse_mode="HTML",
     )
 
 
-@router.callback_query(ReminderStates.confirm, F.data.startswith("reminder_confirm:"))
-async def fsm_confirm(callback: CallbackQuery, state: FSMContext) -> None:
-    choice = callback.data.split(":")[1]
-
-    if choice == "no":
-        await state.clear()
-        await callback.message.edit_text("❌ Добавление напоминалки отменено.")
-        await callback.answer()
-        return
-
+@router.message(ReminderStates.confirm, Command("confirm"))
+async def fsm_confirm(message: Message, state: FSMContext) -> None:
     data = await state.get_data()
     await insert_reminder(
         user_id=settings.admin_id,
@@ -147,7 +145,11 @@ async def fsm_confirm(callback: CallbackQuery, state: FSMContext) -> None:
 
     from bot.scheduler.scheduler import reschedule_today
 
-    await reschedule_today(callback.bot)
+    await reschedule_today(message.bot)
 
-    await callback.message.edit_text("✅ Напоминалка добавлена!")
-    await callback.answer()
+    await message.answer("✅ Напоминалка добавлена!")
+
+
+@router.message(ReminderStates.confirm)
+async def fsm_confirm_unknown(message: Message) -> None:
+    await message.answer("Отправь /confirm, чтобы сохранить, или /cancel, чтобы отменить.")

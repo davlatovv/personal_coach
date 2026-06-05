@@ -1,6 +1,6 @@
 from datetime import date, timedelta
 
-from aiogram import Router, F
+from aiogram import Router
 from aiogram.filters import Command
 from aiogram.types import Message
 
@@ -28,7 +28,6 @@ async def _tomorrow_text() -> str:
 
 
 @router.message(Command("today"))
-@router.message(F.text == "📅 Сегодня")
 async def cmd_today(message: Message) -> None:
     text = await _today_text()
     await message.answer(text)

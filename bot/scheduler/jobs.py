@@ -9,7 +9,6 @@ from aiogram.exceptions import TelegramRetryAfter, TelegramNetworkError, Telegra
 
 from bot.config import settings
 from bot.database.queries import log_notification, log_reminder_notification
-from bot.keyboards.inline import notification_action_keyboard
 from bot.utils.emoji import CATEGORY_EMOJI, SPORT_PHRASES
 from bot.utils.formatters import format_notification
 
@@ -68,7 +67,7 @@ async def send_notification(bot: Bot, item: dict, target_date: date) -> None:
             day_type=item["day_type"],
             category=item["category"],
         )
-        keyboard = notification_action_keyboard(log_id)
+        text += f"\n\nID: {log_id}\n/done {log_id} — выполнено\n/skip {log_id} — пропустить"
     except Exception as e:
         logger.error(f"[NOTIFICATION PREP ERROR] item_id={item['id']}: {e}")
         return
@@ -76,7 +75,7 @@ async def send_notification(bot: Bot, item: dict, target_date: date) -> None:
     max_attempts = 5
     for attempt in range(1, max_attempts + 1):
         try:
-            await bot.send_message(chat_id=settings.admin_id, text=text, reply_markup=keyboard)
+            await bot.send_message(chat_id=settings.admin_id, text=text)
             return
         except TelegramRetryAfter as e:
             wait_for = max(float(e.retry_after), 1.0)
@@ -121,7 +120,7 @@ async def send_reminder_notification(bot: Bot, reminder: dict, target_date: date
             reminder_id=reminder["id"],
             target_date=target_date.isoformat(),
         )
-        keyboard = notification_action_keyboard(log_id)
+        text += f"\n\nID: {log_id}\n/done {log_id} — выполнено\n/skip {log_id} — пропустить"
     except Exception as e:
         logger.error(f"[REMINDER PREP ERROR] reminder_id={reminder['id']}: {e}")
         return
@@ -132,7 +131,6 @@ async def send_reminder_notification(bot: Bot, reminder: dict, target_date: date
             await bot.send_message(
                 chat_id=settings.admin_id,
                 text=text,
-                reply_markup=keyboard,
             )
             return
         except TelegramRetryAfter as e:

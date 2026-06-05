@@ -1,11 +1,9 @@
 from aiogram import Router
 from aiogram.filters import CommandStart
-from aiogram.types import Message
+from aiogram.types import Message, ReplyKeyboardRemove
 
-from bot.config import settings
 from bot.database.queries import upsert_user
 from bot.database.seed import seed_schedule
-from bot.keyboards.reply import main_keyboard
 
 router = Router()
 
@@ -38,4 +36,4 @@ async def cmd_start(message: Message) -> None:
         "/help — помощь"
     )
 
-    await message.answer(text, reply_markup=main_keyboard())
+    await message.answer(text, reply_markup=ReplyKeyboardRemove())

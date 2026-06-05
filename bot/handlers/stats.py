@@ -1,6 +1,6 @@
 from datetime import date, timedelta
 
-from aiogram import Router, F
+from aiogram import Router
 from aiogram.filters import Command
 from aiogram.types import Message
 
@@ -14,7 +14,6 @@ router = Router()
 
 
 @router.message(Command("stats"))
-@router.message(F.text == "📊 Статистика")
 async def cmd_stats(message: Message) -> None:
     today = date.today()
     start_of_week = today - timedelta(days=today.weekday())

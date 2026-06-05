@@ -6,7 +6,7 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.types import Update
+from aiogram.types import BotCommand
 
 from bot.config import settings
 from bot.database.db import create_tables
@@ -32,6 +32,31 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 logger = logging.getLogger(__name__)
+
+
+BOT_COMMANDS = [
+    BotCommand(command="today", description="Расписание на сегодня"),
+    BotCommand(command="tomorrow", description="Расписание на завтра"),
+    BotCommand(command="week", description="Расписание на неделю"),
+    BotCommand(command="stats", description="Статистика уведомлений"),
+    BotCommand(command="edit", description="Редактировать расписание"),
+    BotCommand(command="edit_item", description="Показать событие по ID"),
+    BotCommand(command="enable", description="Включить событие"),
+    BotCommand(command="disable", description="Отключить событие"),
+    BotCommand(command="edit_time", description="Изменить время события"),
+    BotCommand(command="edit_desc", description="Изменить описание события"),
+    BotCommand(command="delete", description="Удалить пользовательское событие"),
+    BotCommand(command="add", description="Добавить событие"),
+    BotCommand(command="reminder", description="Добавить напоминалку"),
+    BotCommand(command="daytype", description="Изменить тип дня"),
+    BotCommand(command="done", description="Отметить уведомление выполненным"),
+    BotCommand(command="skip", description="Пропустить описание или уведомление"),
+    BotCommand(command="confirm", description="Подтвердить действие"),
+    BotCommand(command="cancel", description="Отменить действие"),
+    BotCommand(command="pause", description="Пауза уведомлений"),
+    BotCommand(command="resume", description="Возобновить уведомления"),
+    BotCommand(command="help", description="Помощь"),
+]
 
 
 async def admin_only_middleware(handler, event, data):
@@ -63,6 +88,7 @@ async def main() -> None:
     )
     storage = MemoryStorage()
     dp = Dispatcher(storage=storage)
+    await bot.set_my_commands(BOT_COMMANDS)
 
     # Middleware
     dp.update.outer_middleware(admin_only_middleware)
@@ -84,7 +110,7 @@ async def main() -> None:
 
     logger.info("Bot starting...")
     try:
-        await dp.start_polling(bot, allowed_updates=["message", "callback_query"])
+        await dp.start_polling(bot, allowed_updates=["message"])
     finally:
         await stop_scheduler()
         await bot.session.close()
