@@ -27,7 +27,7 @@ def format_notification(item: Dict[str, Any]) -> str:
         "",
         item["title"],
     ]
-    if item.get("description"):
+    if item["category"] == "supplement" and item.get("description"):
         lines.append("")
         lines.append(item["description"])
 
