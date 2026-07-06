@@ -3,7 +3,6 @@ from aiogram.filters import CommandStart
 from aiogram.types import Message, ReplyKeyboardRemove
 
 from bot.database.queries import upsert_user
-from bot.database.seed import seed_schedule
 
 router = Router()
 
@@ -14,7 +13,6 @@ async def cmd_start(message: Message) -> None:
     username = message.from_user.username
 
     await upsert_user(user_id, username)
-    await seed_schedule(user_id)
 
     text = (
         "👋 Привет! Я твой персональный планировщик дня.\n\n"

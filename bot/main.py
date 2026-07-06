@@ -10,7 +10,6 @@ from aiogram.types import BotCommand
 
 from bot.config import settings
 from bot.database.db import create_tables
-from bot.database.seed import seed_schedule
 from bot.database.queries import upsert_user
 from bot.scheduler.scheduler import start_scheduler, stop_scheduler
 
@@ -78,7 +77,6 @@ async def main() -> None:
     # Init DB
     await create_tables()
     await upsert_user(settings.admin_id, None)
-    await seed_schedule(settings.admin_id)
 
     session = AiohttpSession(timeout=60.0)
     bot = Bot(
